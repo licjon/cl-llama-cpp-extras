@@ -1,0 +1,96 @@
+* cl-llama-cpp-extras
+
+Optional extensions for [[https://github.com/licjon/cl-llama-cpp][cl-llama-cpp]] that depend on C++ internals not
+covered by the public C API. Each extension lives in its own ASDF system
+under the =cl-llama-cpp-extras/= prefix.
+
+** Extensions
+
+*** =cl-llama-cpp-extras/json-schema=
+
+Convert JSON Schema strings to GBNF grammars for constrained generation. Wraps
+llama.cpp's =json_schema_to_grammar()= (a C++ function in =libllama-common=) via
+a thin C shim with =extern "C"= linkage.
+
+#+begin_src lisp
+;; Convert a JSON Schema to a GBNF grammar string
+(cl-llama-cpp-extras/json-schema:json-schema-to-grammar
+  "{\"type\":\"object\",\"properties\":{\"name\":{\"type\":\"string\"}},\"required\":[\"name\"]}")
+
+;; Use the grammar for constrained generation
+(let ((gbnf (cl-llama-cpp-extras/json-schema:json-schema-to-grammar schema)))
+  (cl-llama-cpp:generate ctx prompt :grammar gbnf))
+
+;; Or create a sampler directly (for manual chain building)
+(let ((gs (cl-llama-cpp-extras/json-schema:make-json-schema-sampler model schema)))
+  (cl-llama-cpp:with-sampler-chain (chain)
+    (cl-llama-cpp:sampler-chain-add chain gs)
+    (cl-llama-cpp:sampler-chain-add chain (cl-llama-cpp:make-dist-sampler 42))
+    (cl-llama-cpp:generate ctx prompt :sampler chain)))
+#+end_src
+
+Signals =json-schema-parse-error= (malformed JSON) and =json-schema-conversion-error=
+(invalid schema), both subtypes of =cl-llama-cpp:llama-error=. A =use-different-schema=
+restart is established for interactive recovery.
+
+** Requirements
+
+- [[https://github.com/licjon/cl-llama-cpp][cl-llama-cpp]] with llama.cpp built (=libllama-common.so= must exist)
+- A C++17 compiler (for building the shim)
+
+** Installation
+
+Clone into your ASDF source registry alongside =cl-llama-cpp=:
+
+#+begin_src bash
+cd ~/.roswell/local-projects   # or ~/common-lisp/
+git clone https://github.com/licjon/cl-llama-cpp-extras
+#+end_src
+
+Load in Lisp:
+
+#+begin_src lisp
+(asdf:load-system "cl-llama-cpp-extras/json-schema")
+#+end_src
+
+The C++ shim (=libllama-json-schema-shim.so=) is built automatically on first load.
+It rebuilds whenever =libllama-common.so= or the shim source is updated, so upgrading
+llama.cpp in =cl-llama-cpp= is handled transparently.
+
+** Examples
+
+#+begin_src lisp
+(asdf:load-system "cl-llama-cpp-extras/examples")
+#+end_src
+
+| File                      | Demonstrates                                                      |
+|---------------------------+-------------------------------------------------------------------|
+| =examples/json-schema.lisp= | Schema → GBNF conversion, constrained generation, error handling |
+
+Run without a model (demos 1 and 3 only need the shim):
+
+#+begin_src lisp
+(cl-llama-cpp-extras/examples/json-schema:run)
+#+end_src
+
+Run with a model (all demos):
+
+#+begin_src lisp
+(setf cl-llama-cpp-extras/examples/json-schema::*model-path*
+      "/path/to/model.gguf")
+(cl-llama-cpp-extras/examples/json-schema:run)
+#+end_src
+
+** Running Tests
+
+#+begin_src bash
+sbcl --eval '(asdf:load-system "cl-llama-cpp-extras/json-schema/tests")' \
+     --eval '(asdf:test-system "cl-llama-cpp-extras/json-schema/tests")' \
+     --eval '(quit)'
+#+end_src
+
+No model is required — tests exercise conversion, conditions, and restarts.
+
+** License
+
+MIT
