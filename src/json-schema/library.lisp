@@ -14,13 +14,13 @@
                    (> (file-write-date common-so) (file-write-date shim-so))
                    (> (file-write-date shim-src) (file-write-date shim-so))))
       (format *error-output* "~&; Building libllama-json-schema-shim.so...~%")
-      (let* ((makefile-dir (merge-pathnames "shim/" extras-dir))
-             (cmd (format nil "make -C ~A LLAMA_CPP_DIR=~A"
-                          (namestring makefile-dir)
-                          (namestring (merge-pathnames "llama.cpp/" llama-dir)))))
+      (let ((makefile-dir (merge-pathnames "shim/" extras-dir)))
         (multiple-value-bind (output error-output exit-code)
-            (uiop:run-program cmd :output :string :error-output :string
-                                  :ignore-error-status t)
+            (uiop:run-program
+             (list "make" "-C" (namestring makefile-dir)
+                   (format nil "LLAMA_CPP_DIR=~A"
+                           (namestring (merge-pathnames "llama.cpp/" llama-dir))))
+             :output :string :error-output :string :ignore-error-status t)
           (declare (ignore output))
           (unless (zerop exit-code)
             (error "Failed to build JSON Schema shim (exit ~D):~%~A"

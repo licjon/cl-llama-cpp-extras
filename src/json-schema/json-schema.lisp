@@ -33,16 +33,21 @@ or JSON-SCHEMA-CONVERSION-ERROR if the schema cannot be converted."
           (let ((output-ptr (getf result 'output))
                 (status (getf result 'status)))
             (unwind-protect
-                 (let ((output-string (cffi:foreign-string-to-lisp output-ptr)))
-                   (case status
-                     (0 output-string)
-                     (1 (error 'json-schema-parse-error
+                 (progn
+                   (when (cffi:null-pointer-p output-ptr)
+                     (error 'json-schema-conversion-error
+                            :schema json-schema-string
+                            :message "C shim returned NULL (out of memory?)"))
+                   (let ((output-string (cffi:foreign-string-to-lisp output-ptr)))
+                     (case status
+                       (0 output-string)
+                       (1 (error 'json-schema-parse-error
+                                 :schema json-schema-string
+                                 :message output-string))
+                       (otherwise
+                        (error 'json-schema-conversion-error
                                :schema json-schema-string
-                               :message output-string))
-                     (otherwise
-                      (error 'json-schema-conversion-error
-                             :schema json-schema-string
-                             :message output-string))))
+                               :message output-string)))))
               (%shim-free output-ptr))))
       (use-different-schema (new-schema)
         :report "Retry with a different JSON Schema (string or hash table)"

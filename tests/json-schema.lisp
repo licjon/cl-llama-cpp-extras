@@ -90,3 +90,9 @@
               (cl-llama-cpp-extras/json-schema:json-schema-to-grammar "bad json"))))
       (ok (stringp result))
       (ok (plusp (length result))))))
+
+(deftest test-shim-free-null-pointer
+  (testing "freeing a null pointer does not crash (cleanup path for null-pointer guard)"
+    (ok (progn
+          (cl-llama-cpp-extras/json-schema::%shim-free (cffi:null-pointer))
+          t))))
