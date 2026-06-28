@@ -2,18 +2,23 @@ LLAMA_CPP_DIR   ?= ../../cl-llama-cpp/llama.cpp
 LLAMA_BUILD_DIR ?= $(LLAMA_CPP_DIR)/build/bin
 
 CXX      ?= c++
-CXXFLAGS  = -std=c++17 -O2 -fPIC -shared
-INCLUDES  = -I$(LLAMA_CPP_DIR)/common -I$(LLAMA_CPP_DIR)/vendor
-LDFLAGS   = -L$(LLAMA_BUILD_DIR) -lllama-common -Wl,-rpath,'$$ORIGIN'
+CXXFLAGS  = -std=c++17 -O2 -fPIC
+INCLUDES  = -I$(LLAMA_CPP_DIR)/common -I$(LLAMA_CPP_DIR)/include -I$(LLAMA_CPP_DIR)/ggml/include -I$(LLAMA_CPP_DIR)/vendor
+LDFLAGS   = -L$(LLAMA_BUILD_DIR) -lllama-common -lllama -Wl,-rpath,'$$ORIGIN'
 
-TARGET    = $(LLAMA_BUILD_DIR)/libllama-json-schema-shim.so
+SRCS     := $(wildcard *.cpp)
+OBJS     := $(SRCS:.cpp=.o)
+TARGET    = $(LLAMA_BUILD_DIR)/libllama-extras-shim.so
 
 all: $(TARGET)
 
-$(TARGET): json-schema-shim.cpp
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $< $(LDFLAGS)
+$(TARGET): $(OBJS)
+	$(CXX) -shared -o $@ $^ $(LDFLAGS)
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(OBJS) $(TARGET)
 
 .PHONY: all clean

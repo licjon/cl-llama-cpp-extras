@@ -2,7 +2,9 @@
 
 Optional extensions for [[https://github.com/licjon/cl-llama-cpp][cl-llama-cpp]] that depend on C++ internals not
 covered by the public C API. Each extension lives in its own ASDF system
-under the =cl-llama-cpp-extras/= prefix.
+under the =cl-llama-cpp-extras/= prefix. All extensions share a single
+unified C++ shim library (=libllama-extras-shim.so=), built automatically
+on first load.
 
 ** Extensions
 
@@ -33,6 +35,41 @@ Signals =json-schema-parse-error= (malformed JSON) and =json-schema-conversion-e
 (invalid schema), both subtypes of =cl-llama-cpp:llama-error=. A =use-different-schema=
 restart is established for interactive recovery.
 
+*** =cl-llama-cpp-extras/speculative=
+
+Self-speculative decoding via n-gram prediction (=NGRAM_SIMPLE=). The model
+drafts candidate tokens based on n-gram patterns in the prompt, then verifies
+them in a single batch — no separate draft model required.
+
+#+begin_src lisp
+;; Create params and configure n-gram speculative decoding
+(cl-llama-cpp-extras/speculative:with-speculative-params (params)
+  (cl-llama-cpp-extras/speculative:speculative-params-add-type
+    params cl-llama-cpp-extras/speculative:+speculative-type-ngram-simple+)
+  (cl-llama-cpp-extras/speculative:speculative-params-set-ngram-n params 4)
+
+  ;; Initialize the speculative context
+  (cl-llama-cpp-extras/speculative:with-speculative-context (ctx params)
+    ;; Begin with prompt tokens
+    (cl-llama-cpp-extras/speculative:speculative-begin ctx 0 prompt-tokens)
+
+    ;; Draft/verify loop
+    (let ((drafted (cl-llama-cpp-extras/speculative:speculative-draft ctx
+                     :seq-id 0
+                     :n-past n-past
+                     :id-last last-token
+                     :prompt-tokens prompt-tokens)))
+      ;; ... verify drafted tokens with target model ...
+      (cl-llama-cpp-extras/speculative:speculative-accept ctx 0 n-accepted))))
+#+end_src
+
+Signals =speculative-init-error= (a subtype of =cl-llama-cpp:llama-error=) on
+initialization failure.
+
+Currently supported types: =+speculative-type-ngram-simple+= (self-speculative,
+no draft model). Draft-model types (=DRAFT_SIMPLE=, =EAGLE3=, =MTP=) are defined
+as constants but require cross-package batch access and are deferred.
+
 ** Requirements
 
 - [[https://github.com/licjon/cl-llama-cpp][cl-llama-cpp]] with llama.cpp built (=libllama-common.so= must exist)
@@ -47,15 +84,17 @@ cd ~/.roswell/local-projects   # or ~/common-lisp/
 git clone https://github.com/licjon/cl-llama-cpp-extras
 #+end_src
 
-Load in Lisp:
+The unified C++ shim (=libllama-extras-shim.so=) is built automatically on first
+load of any extension. It rebuilds whenever =libllama-common.so= or any shim
+source file is updated, so upgrading llama.cpp in =cl-llama-cpp= is handled
+transparently.
+
+Load individual extensions:
 
 #+begin_src lisp
 (asdf:load-system "cl-llama-cpp-extras/json-schema")
+(asdf:load-system "cl-llama-cpp-extras/speculative")
 #+end_src
-
-The C++ shim (=libllama-json-schema-shim.so=) is built automatically on first load.
-It rebuilds whenever =libllama-common.so= or the shim source is updated, so upgrading
-llama.cpp in =cl-llama-cpp= is handled transparently.
 
 ** Examples
 
@@ -84,12 +123,16 @@ Run with a model (all demos):
 ** Running Tests
 
 #+begin_src bash
-sbcl --eval '(asdf:load-system "cl-llama-cpp-extras/json-schema/tests")' \
-     --eval '(asdf:test-system "cl-llama-cpp-extras/json-schema/tests")' \
-     --eval '(quit)'
+# JSON Schema tests
+ros run --eval '(asdf:test-system "cl-llama-cpp-extras/json-schema/tests")' \
+        --eval '(sb-ext:quit)'
+
+# Speculative decoding tests
+ros run --eval '(asdf:test-system "cl-llama-cpp-extras/speculative/tests")' \
+        --eval '(sb-ext:quit)'
 #+end_src
 
-No model is required — tests exercise conversion, conditions, and restarts.
+No model is required — tests exercise the shim API, conditions, and lifecycle.
 
 ** License
 
