@@ -35,6 +35,32 @@ Signals =json-schema-parse-error= (malformed JSON) and =json-schema-conversion-e
 (invalid schema), both subtypes of =cl-llama-cpp:llama-error=. A =use-different-schema=
 restart is established for interactive recovery.
 
+*** =cl-llama-cpp-extras/json-partial=
+
+Parse incomplete JSON mid-generation by adding missing closers. Wraps
+llama.cpp's =common_json_parse()= from =json-partial.h=. Useful for streaming
+tool-call extraction — lets you parse partial JSON output before the model
+finishes generating.
+
+#+begin_src lisp
+;; Parse complete JSON (no healing)
+(cl-llama-cpp-extras/json-partial:json-partial-parse "{\"name\":\"Alice\"}")
+;; => "{\"name\":\"Alice\"}", NIL, ""
+
+;; Heal partial JSON with a healing marker
+(cl-llama-cpp-extras/json-partial:json-partial-parse
+  "{\"name\":\"Ali"
+  :healing-marker "$HEAL$")
+;; => "{\"name\":\"Ali$HEAL$\"}", T, "$HEAL$"
+;; The json-dump-marker (third value) locates where healing begins in the output
+#+end_src
+
+Returns three values: the parsed JSON string, whether healing was applied (=T= or
+=NIL=), and the json-dump-marker (a string that locates the healing boundary in
+the output). Signals =json-partial-parse-error= when the input cannot be parsed
+or healed, a subtype of =json-partial-error= (itself a subtype of
+=cl-llama-cpp:llama-error=).
+
 *** =cl-llama-cpp-extras/speculative=
 
 Self-speculative decoding via n-gram prediction (=NGRAM_SIMPLE=). The model
@@ -93,6 +119,7 @@ Load individual extensions:
 
 #+begin_src lisp
 (asdf:load-system "cl-llama-cpp-extras/json-schema")
+(asdf:load-system "cl-llama-cpp-extras/json-partial")
 (asdf:load-system "cl-llama-cpp-extras/speculative")
 #+end_src
 
@@ -125,6 +152,10 @@ Run with a model (all demos):
 #+begin_src bash
 # JSON Schema tests
 ros run --eval '(asdf:test-system "cl-llama-cpp-extras/json-schema/tests")' \
+        --eval '(sb-ext:quit)'
+
+# JSON partial healing tests
+ros run --eval '(asdf:test-system "cl-llama-cpp-extras/json-partial/tests")' \
         --eval '(sb-ext:quit)'
 
 # Speculative decoding tests

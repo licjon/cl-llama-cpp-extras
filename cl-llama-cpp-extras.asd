@@ -36,6 +36,28 @@
                  (:file "bindings")
                  (:file "json-schema")))))
 
+(defsystem "cl-llama-cpp-extras/json-partial"
+  :description "Streaming JSON healer — parse incomplete JSON mid-generation"
+  :version "0.1.0"
+  :author "Jonathan Hustad"
+  :license "MIT"
+  :depends-on ("cl-llama-cpp-extras/shim" "yason")
+  :serial t
+  :components ((:module "src/json-partial"
+                :serial t
+                :components
+                ((:file "packages")
+                 (:file "bindings")
+                 (:file "json-partial")))))
+
+(defsystem "cl-llama-cpp-extras/json-partial/tests"
+  :description "Tests for cl-llama-cpp-extras/json-partial"
+  :depends-on ("cl-llama-cpp-extras/json-partial" "rove")
+  :components ((:module "tests"
+                :components
+                ((:file "json-partial"))))
+  :perform (test-op (op c) (symbol-call :rove :run c)))
+
 (defsystem "cl-llama-cpp-extras/examples"
   :description "Example programs for cl-llama-cpp-extras"
   :depends-on ("cl-llama-cpp-extras/json-schema")
