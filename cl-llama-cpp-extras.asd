@@ -171,3 +171,25 @@
                 :components
                 ((:file "chat"))))
   :perform (test-op (op c) (symbol-call :rove :run c)))
+
+(defsystem "cl-llama-cpp-extras/imatrix-loader"
+  :description "Importance matrix loading for quantization workflows"
+  :version "0.1.0"
+  :author "Jonathan Hustad"
+  :license "MIT"
+  :depends-on ("cl-llama-cpp-extras/shim")
+  :serial t
+  :components ((:module "src/imatrix-loader"
+                :serial t
+                :components
+                ((:file "packages")
+                 (:file "bindings")
+                 (:file "imatrix-loader")))))
+
+(defsystem "cl-llama-cpp-extras/imatrix-loader/tests"
+  :description "Tests for cl-llama-cpp-extras/imatrix-loader"
+  :depends-on ("cl-llama-cpp-extras/imatrix-loader" "rove")
+  :components ((:module "tests"
+                :components
+                ((:file "imatrix-loader"))))
+  :perform (test-op (op c) (symbol-call :rove :run c)))
