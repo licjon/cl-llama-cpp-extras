@@ -200,6 +200,70 @@ It must not outlive the model it was created from.
 Signals =chat-init-error= (template/apply failures) and =chat-parse-error=
 (parse failures), both subtypes of =cl-llama-cpp:llama-error=.
 
+*** =cl-llama-cpp-extras/ngram-map=
+
+N-gram speculative token drafting via hash-map lookup. Wraps
+=common/ngram-map.h= — a stateful map that records n-gram patterns in the
+generation history and drafts candidate continuations from them. Includes a
+simpler stateless =ngram-simple-draft= function for one-shot pattern matching.
+
+#+begin_src lisp
+;; Stateless: draft from token history directly
+(cl-llama-cpp-extras/ngram-map:ngram-simple-draft
+  2 3                            ; n-gram size, m-gram draft size
+  #(10 20 30 40 50 10 20 30)    ; token history
+  40)                            ; last sampled token
+;; => #(50 10 20)  — drafted tokens from matched pattern
+
+;; Stateful: create a map, train on history, draft
+(cl-llama-cpp-extras/ngram-map:with-ngram-map (m 2 3 :key-only-p t :min-hits 1)
+  (let ((tokens #(10 20 30 40 50 10 20 30)))
+    (cl-llama-cpp-extras/ngram-map:ngram-map-begin m tokens)
+    (let ((drafted (cl-llama-cpp-extras/ngram-map:ngram-map-draft m tokens 40)))
+      ;; ... verify drafted tokens with target model ...
+      (cl-llama-cpp-extras/ngram-map:ngram-map-accept m (length drafted)))))
+#+end_src
+
+The map handle is freed automatically by =with-ngram-map= or GC finalization;
+=free-ngram-map= is available for explicit cleanup (idempotent).
+
+Signals =ngram-map-init-error= (a subtype of =cl-llama-cpp:llama-error=) on
+allocation failure.
+
+*** =cl-llama-cpp-extras/imatrix-loader=
+
+Load importance matrices from =.dat= (legacy) or =.gguf= files for use in
+quantization workflows. Wraps =common/imatrix-loader.h= — a single
+=load-imatrix= function that reads the file and returns all data as CL structs.
+
+#+begin_src lisp
+;; Load an importance matrix
+(let ((imat (cl-llama-cpp-extras/imatrix-loader:load-imatrix
+              "/path/to/imatrix.dat")))
+
+  ;; Inspect metadata
+  (cl-llama-cpp-extras/imatrix-loader:imatrix-chunk-count imat)   ; => 100
+  (cl-llama-cpp-extras/imatrix-loader:imatrix-chunk-size imat)    ; => 512
+  (cl-llama-cpp-extras/imatrix-loader:imatrix-legacy-p imat)      ; => T or NIL
+  (cl-llama-cpp-extras/imatrix-loader:imatrix-has-metadata-p imat) ; => T or NIL
+  (cl-llama-cpp-extras/imatrix-loader:imatrix-datasets imat)      ; => ("wiki" ...)
+
+  ;; Access entries — hash table mapping tensor name to imatrix-entry
+  (let ((entries (cl-llama-cpp-extras/imatrix-loader:imatrix-entries imat)))
+    (maphash (lambda (name entry)
+               (format t "~A: ~D sums, ~D counts~%"
+                       name
+                       (length (cl-llama-cpp-extras/imatrix-loader:imatrix-entry-sums entry))
+                       (length (cl-llama-cpp-extras/imatrix-loader:imatrix-entry-counts entry))))
+             entries)))
+#+end_src
+
+Returns pure CL data — no opaque pointers or cleanup needed. The C-side handle
+is created, read, and freed within the single =load-imatrix= call.
+
+Signals =imatrix-load-error= (a subtype of =cl-llama-cpp:llama-error=) when the
+file cannot be loaded or parsed.
+
 ** Requirements
 
 - [[https://github.com/licjon/cl-llama-cpp][cl-llama-cpp]] with llama.cpp built (=libllama-common.so= must exist)
@@ -227,6 +291,8 @@ Load individual extensions:
 (asdf:load-system "cl-llama-cpp-extras/speculative")
 (asdf:load-system "cl-llama-cpp-extras/reasoning-budget")
 (asdf:load-system "cl-llama-cpp-extras/chat")
+(asdf:load-system "cl-llama-cpp-extras/ngram-map")
+(asdf:load-system "cl-llama-cpp-extras/imatrix-loader")
 #+end_src
 
 ** Examples
@@ -274,6 +340,14 @@ ros run --eval '(asdf:test-system "cl-llama-cpp-extras/reasoning-budget/tests")'
 
 # Chat tests
 ros run --eval '(asdf:test-system "cl-llama-cpp-extras/chat/tests")' \
+        --eval '(sb-ext:quit)'
+
+# N-gram map tests
+ros run --eval '(asdf:test-system "cl-llama-cpp-extras/ngram-map/tests")' \
+        --eval '(sb-ext:quit)'
+
+# Importance matrix loader tests
+ros run --eval '(asdf:test-system "cl-llama-cpp-extras/imatrix-loader/tests")' \
         --eval '(sb-ext:quit)'
 #+end_src
 
