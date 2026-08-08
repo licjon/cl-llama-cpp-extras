@@ -193,3 +193,25 @@
                 :components
                 ((:file "imatrix-loader"))))
   :perform (test-op (op c) (symbol-call :rove :run c)))
+
+(defsystem "cl-llama-cpp-extras/fit"
+  :description "Automatic GPU memory fitting for cl-llama-cpp"
+  :version "0.1.0"
+  :author "Jonathan Hustad"
+  :license "MIT"
+  :depends-on ("cl-llama-cpp-extras/shim")
+  :serial t
+  :components ((:module "src/fit"
+                :serial t
+                :components
+                ((:file "packages")
+                 (:file "bindings")
+                 (:file "fit")))))
+
+(defsystem "cl-llama-cpp-extras/fit/tests"
+  :description "Tests for cl-llama-cpp-extras/fit"
+  :depends-on ("cl-llama-cpp-extras/fit" "rove")
+  :components ((:module "tests"
+                :components
+                ((:file "fit"))))
+  :perform (test-op (op c) (symbol-call :rove :run c)))
