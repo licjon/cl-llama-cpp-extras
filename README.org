@@ -154,6 +154,52 @@ that emit multiple thinking blocks each get a fresh budget window.
 Signals =reasoning-budget-init-error= (a subtype of =cl-llama-cpp:llama-error=)
 if sampler creation fails.
 
+*** =cl-llama-cpp-extras/chat=
+
+Structured chat template rendering and tool-call parsing via llama.cpp's
+=common/chat.h=. Provides Jinja-based template rendering, GBNF grammar
+generation for constrained tool calling, and output parsing into structured
+messages. This is the higher-level layer above =cl-llama-cpp='s =chat.lisp=
+(which wraps the simpler C function =llama_chat_apply_template=).
+
+#+begin_src lisp
+;; Create a templates handle from a loaded model
+(cl-llama-cpp-extras/chat:with-chat-templates (tmpls model)
+
+  ;; Render messages to a prompt + grammar for constrained generation
+  (let* ((messages (list (list :role "system" :content "You are helpful.")
+                         (list :role "user" :content "What's the weather?")))
+         (tools (list (list :name "get_weather"
+                            :description "Get current weather"
+                            :parameters "{\"type\":\"object\",\"properties\":{\"location\":{\"type\":\"string\"}},\"required\":[\"location\"]}")))
+         (result (cl-llama-cpp-extras/chat:chat-templates-apply
+                   tmpls messages :tools tools)))
+    ;; result is a plist: :PROMPT, :GRAMMAR, :FORMAT, :GRAMMAR-LAZY, ...
+    (let ((prompt (getf result :prompt))
+          (grammar (getf result :grammar)))
+      ;; Use prompt + grammar for constrained generation
+      (cl-llama-cpp:generate ctx prompt :grammar grammar))))
+#+end_src
+
+Parse model output back into structured messages:
+
+#+begin_src lisp
+;; Parse content-only output (no tool calls)
+(cl-llama-cpp-extras/chat:chat-parse "Hello!")
+;; => (:ROLE "assistant" :CONTENT "Hello!")
+
+;; Validate a chat template string
+(cl-llama-cpp-extras/chat:chat-verify-template
+  "{% for message in messages %}...{% endfor %}" :use-jinja t)
+;; => T or NIL
+#+end_src
+
+The templates handle needs a GC finalizer or =with-chat-templates= for cleanup.
+It must not outlive the model it was created from.
+
+Signals =chat-init-error= (template/apply failures) and =chat-parse-error=
+(parse failures), both subtypes of =cl-llama-cpp:llama-error=.
+
 ** Requirements
 
 - [[https://github.com/licjon/cl-llama-cpp][cl-llama-cpp]] with llama.cpp built (=libllama-common.so= must exist)
@@ -180,6 +226,7 @@ Load individual extensions:
 (asdf:load-system "cl-llama-cpp-extras/json-partial")
 (asdf:load-system "cl-llama-cpp-extras/speculative")
 (asdf:load-system "cl-llama-cpp-extras/reasoning-budget")
+(asdf:load-system "cl-llama-cpp-extras/chat")
 #+end_src
 
 ** Examples
@@ -223,6 +270,10 @@ ros run --eval '(asdf:test-system "cl-llama-cpp-extras/speculative/tests")' \
 
 # Reasoning budget tests
 ros run --eval '(asdf:test-system "cl-llama-cpp-extras/reasoning-budget/tests")' \
+        --eval '(sb-ext:quit)'
+
+# Chat tests
+ros run --eval '(asdf:test-system "cl-llama-cpp-extras/chat/tests")' \
         --eval '(sb-ext:quit)'
 #+end_src
 
