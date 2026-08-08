@@ -127,3 +127,25 @@
                 :components
                 ((:file "reasoning-budget"))))
   :perform (test-op (op c) (symbol-call :rove :run c)))
+
+(defsystem "cl-llama-cpp-extras/chat"
+  :description "Chat template rendering and tool call parsing for cl-llama-cpp"
+  :version "0.1.0"
+  :author "Jonathan Hustad"
+  :license "MIT"
+  :depends-on ("cl-llama-cpp-extras/shim" "yason" "trivial-garbage")
+  :serial t
+  :components ((:module "src/chat"
+                :serial t
+                :components
+                ((:file "packages")
+                 (:file "bindings")
+                 (:file "chat")))))
+
+(defsystem "cl-llama-cpp-extras/chat/tests"
+  :description "Tests for cl-llama-cpp-extras/chat"
+  :depends-on ("cl-llama-cpp-extras/chat" "rove")
+  :components ((:module "tests"
+                :components
+                ((:file "chat"))))
+  :perform (test-op (op c) (symbol-call :rove :run c)))
