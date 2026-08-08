@@ -128,6 +128,28 @@
                 ((:file "reasoning-budget"))))
   :perform (test-op (op c) (symbol-call :rove :run c)))
 
+(defsystem "cl-llama-cpp-extras/ngram-map"
+  :description "N-gram speculative token drafting for cl-llama-cpp"
+  :version "0.1.0"
+  :author "Jonathan Hustad"
+  :license "MIT"
+  :depends-on ("cl-llama-cpp-extras/shim" "trivial-garbage")
+  :serial t
+  :components ((:module "src/ngram-map"
+                :serial t
+                :components
+                ((:file "packages")
+                 (:file "bindings")
+                 (:file "ngram-map")))))
+
+(defsystem "cl-llama-cpp-extras/ngram-map/tests"
+  :description "Tests for cl-llama-cpp-extras/ngram-map"
+  :depends-on ("cl-llama-cpp-extras/ngram-map" "rove")
+  :components ((:module "tests"
+                :components
+                ((:file "ngram-map"))))
+  :perform (test-op (op c) (symbol-call :rove :run c)))
+
 (defsystem "cl-llama-cpp-extras/chat"
   :description "Chat template rendering and tool call parsing for cl-llama-cpp"
   :version "0.1.0"
