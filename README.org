@@ -230,6 +230,46 @@ The map handle is freed automatically by =with-ngram-map= or GC finalization;
 Signals =ngram-map-init-error= (a subtype of =cl-llama-cpp:llama-error=) on
 allocation failure.
 
+*** =cl-llama-cpp-extras/fit=
+
+Automatic GPU memory fitting — compute optimal =n-gpu-layers=, context size,
+and tensor split to fit available device memory. Wraps =common/fit.h=, which
+probes actual device memory rather than relying on metadata estimates.
+Eliminates the "how many layers can I offload?" guesswork.
+
+#+begin_src lisp
+;; Compute fitting parameters for a model
+(let ((result (cl-llama-cpp-extras/fit:fit-params
+                "/path/to/model.gguf"
+                :margin (* 256 1024 1024)   ; leave 256 MiB free per device
+                :n-ctx-min 512              ; minimum context size
+                :log-level :warn)))         ; :none :debug :info :warn :error
+  (format t "Status: ~A~%" (cl-llama-cpp-extras/fit:fit-result-status result))
+  (format t "GPU layers: ~A~%" (cl-llama-cpp-extras/fit:fit-result-n-gpu-layers result))
+  (format t "Context: ~A~%" (cl-llama-cpp-extras/fit:fit-result-n-ctx result))
+  (format t "Tensor split: ~A~%" (cl-llama-cpp-extras/fit:fit-result-tensor-split result))
+
+  ;; Use the computed parameters to load the model
+  (when (eq :success (cl-llama-cpp-extras/fit:fit-result-status result))
+    (cl-llama-cpp:with-model (model "/path/to/model.gguf"
+                               :n-gpu-layers (cl-llama-cpp-extras/fit:fit-result-n-gpu-layers result))
+      ;; ...
+      )))
+
+;; Print estimated per-device memory breakdown
+(cl-llama-cpp-extras/fit:fit-print "/path/to/model.gguf")
+
+;; Print memory breakdown for an already-loaded context
+(cl-llama-cpp-extras/fit:memory-breakdown-print ctx)
+#+end_src
+
+Returns a =fit-result= struct with =status= (=:success=, =:failure=, or
+=:error=), =n-gpu-layers=, =n-ctx=, and =tensor-split=. Signals =fit-error=
+(a subtype of =cl-llama-cpp:llama-error=) on hard errors (e.g. model not found).
+
+*Thread safety caveat:* =fit-params= is NOT thread safe — it modifies the
+global llama logger state internally.
+
 *** =cl-llama-cpp-extras/imatrix-loader=
 
 Load importance matrices from =.dat= (legacy) or =.gguf= files for use in
@@ -293,6 +333,7 @@ Load individual extensions:
 (asdf:load-system "cl-llama-cpp-extras/chat")
 (asdf:load-system "cl-llama-cpp-extras/ngram-map")
 (asdf:load-system "cl-llama-cpp-extras/imatrix-loader")
+(asdf:load-system "cl-llama-cpp-extras/fit")
 #+end_src
 
 ** Examples
@@ -348,6 +389,10 @@ ros run --eval '(asdf:test-system "cl-llama-cpp-extras/ngram-map/tests")' \
 
 # Importance matrix loader tests
 ros run --eval '(asdf:test-system "cl-llama-cpp-extras/imatrix-loader/tests")' \
+        --eval '(sb-ext:quit)'
+
+# Fit (GPU memory fitting) tests
+ros run --eval '(asdf:test-system "cl-llama-cpp-extras/fit/tests")' \
         --eval '(sb-ext:quit)'
 #+end_src
 
