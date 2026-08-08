@@ -96,6 +96,64 @@ Currently supported types: =+speculative-type-ngram-simple+= (self-speculative,
 no draft model). Draft-model types (=DRAFT_SIMPLE=, =EAGLE3=, =MTP=) are defined
 as constants but require cross-package batch access and are deferred.
 
+*** =cl-llama-cpp-extras/reasoning-budget=
+
+Limit how many tokens a reasoning model (DeepSeek-R1, QwQ, etc.) can spend
+inside a =<think>...</think>= block. Wraps =common/reasoning-budget.h= — a
+=llama_sampler= with a state machine
+(=IDLE → COUNTING → WAITING_UTF8 → FORCING → DONE=) that counts tokens after a
+start sequence and forces an end sequence once the budget runs out.
+
+The sampler is created via a shim because the upstream C++ API takes
+=std::vector<llama_token>&= parameters.
+
+#+begin_src lisp
+;; Load the extension
+(asdf:load-system "cl-llama-cpp-extras/reasoning-budget")
+
+;; Tokenize the start/end/forced sequences for your model.
+;; For DeepSeek-R1 style models, these are typically:
+;;   start  = "<think>"
+;;   end    = "</think>"
+;;   forced = "</think>"  (what gets injected when budget expires)
+(let* ((start-tokens  (cl-llama-cpp:tokenize model "<think>"
+                        :add-special nil :parse-special t))
+       (end-tokens    (cl-llama-cpp:tokenize model "</think>"
+                        :add-special nil :parse-special t))
+       (forced-tokens (cl-llama-cpp:tokenize model "</think>"
+                        :add-special nil :parse-special t))
+
+       ;; Create the sampler — allow up to 1024 thinking tokens
+       (rb (cl-llama-cpp-extras/reasoning-budget:make-reasoning-budget-sampler
+             model start-tokens end-tokens forced-tokens 1024)))
+
+  ;; Add it to your sampler chain (before the sampling strategy).
+  ;; The chain takes ownership — freeing the chain frees this sampler too.
+  (cl-llama-cpp:with-sampler-chain (chain :model model :temp 0.6 :min-p 0.1)
+    (cl-llama-cpp:sampler-chain-add chain rb)
+    (cl-llama-cpp:generate ctx prompt :sampler chain)))
+#+end_src
+
+The sampler works as a logit filter: in =FORCING= state it sets all logits to
+=-inf= except the next forced token, guaranteeing the end sequence is emitted.
+In all other states it's a passthrough.
+
+#+begin_src lisp
+;; Query the state machine at any point
+(cl-llama-cpp-extras/reasoning-budget:reasoning-budget-state rb)
+;; => :IDLE, :COUNTING, :WAITING-UTF8, :FORCING, or :DONE
+
+;; Manually force an early end to thinking (only works from :COUNTING)
+(cl-llama-cpp-extras/reasoning-budget:reasoning-budget-force rb)
+;; => T if transition occurred, NIL otherwise
+#+end_src
+
+The sampler re-arms on a new =<think>= tag after reaching =DONE=, so models
+that emit multiple thinking blocks each get a fresh budget window.
+
+Signals =reasoning-budget-init-error= (a subtype of =cl-llama-cpp:llama-error=)
+if sampler creation fails.
+
 ** Requirements
 
 - [[https://github.com/licjon/cl-llama-cpp][cl-llama-cpp]] with llama.cpp built (=libllama-common.so= must exist)
@@ -121,6 +179,7 @@ Load individual extensions:
 (asdf:load-system "cl-llama-cpp-extras/json-schema")
 (asdf:load-system "cl-llama-cpp-extras/json-partial")
 (asdf:load-system "cl-llama-cpp-extras/speculative")
+(asdf:load-system "cl-llama-cpp-extras/reasoning-budget")
 #+end_src
 
 ** Examples
@@ -160,6 +219,10 @@ ros run --eval '(asdf:test-system "cl-llama-cpp-extras/json-partial/tests")' \
 
 # Speculative decoding tests
 ros run --eval '(asdf:test-system "cl-llama-cpp-extras/speculative/tests")' \
+        --eval '(sb-ext:quit)'
+
+# Reasoning budget tests
+ros run --eval '(asdf:test-system "cl-llama-cpp-extras/reasoning-budget/tests")' \
         --eval '(sb-ext:quit)'
 #+end_src
 

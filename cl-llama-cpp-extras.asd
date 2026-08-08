@@ -105,3 +105,25 @@
                 :components
                 ((:file "speculative"))))
   :perform (test-op (op c) (symbol-call :rove :run c)))
+
+(defsystem "cl-llama-cpp-extras/reasoning-budget"
+  :description "Reasoning token budget limiter for cl-llama-cpp"
+  :version "0.1.0"
+  :author "Jonathan Hustad"
+  :license "MIT"
+  :depends-on ("cl-llama-cpp-extras/shim")
+  :serial t
+  :components ((:module "src/reasoning-budget"
+                :serial t
+                :components
+                ((:file "packages")
+                 (:file "bindings")
+                 (:file "reasoning-budget")))))
+
+(defsystem "cl-llama-cpp-extras/reasoning-budget/tests"
+  :description "Tests for cl-llama-cpp-extras/reasoning-budget"
+  :depends-on ("cl-llama-cpp-extras/reasoning-budget" "rove")
+  :components ((:module "tests"
+                :components
+                ((:file "reasoning-budget"))))
+  :perform (test-op (op c) (symbol-call :rove :run c)))
