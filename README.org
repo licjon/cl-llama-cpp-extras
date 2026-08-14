@@ -1,8 +1,24 @@
 * cl-llama-cpp-extras
 
-*This repository has moved.* Its contents now live as the =common/= module
-inside [[https://github.com/licjon/cl-llama-cpp][cl-llama-cpp]] (systems under the =cl-llama-cpp/common/= prefix). This
-repo is kept for history and will be archived.
+** Archived — moved into cl-llama-cpp
+
+*This repository is archived.* Its contents now live as the =common/= module
+inside [[https://github.com/licjon/cl-llama-cpp][cl-llama-cpp]], under the =cl-llama-cpp/common/= prefix. Development
+continues there — see [[https://github.com/licjon/cl-llama-cpp/blob/master/common/README.org][cl-llama-cpp/common/README.org]] for current docs. This
+repo is kept read-only for history; issues and PRs should go to
+[[https://github.com/licjon/cl-llama-cpp][cl-llama-cpp]] instead.
+
+If you depend on this repo directly, migrating means:
+
+- ASDF systems: =cl-llama-cpp-extras/X= → =cl-llama-cpp/common/X=
+- Packages: same rename (e.g. =cl-llama-cpp-extras/chat= → =cl-llama-cpp/common/chat=)
+- Shim library: =libllama-extras-shim.so= → =libllama-common-shim.so=
+- Install: instead of cloning this repo alongside =cl-llama-cpp=, just install
+  =cl-llama-cpp= with =llama.cpp= built — the common module ships with it
+
+The rest of this README is left as-is below for historical reference; it
+describes the =cl-llama-cpp-extras/*= systems as they existed here before the
+move.
 
 Optional extensions for [[https://github.com/licjon/cl-llama-cpp][cl-llama-cpp]] that depend on C++ internals not
 covered by the public C API. Each extension lives in its own ASDF system
