@@ -1,5 +1,9 @@
 * cl-llama-cpp-extras
 
+*This repository has moved.* Its contents now live as the =common/= module
+inside [[https://github.com/licjon/cl-llama-cpp][cl-llama-cpp]] (systems under the =cl-llama-cpp/common/= prefix). This
+repo is kept for history and will be archived.
+
 Optional extensions for [[https://github.com/licjon/cl-llama-cpp][cl-llama-cpp]] that depend on C++ internals not
 covered by the public C API. Each extension lives in its own ASDF system
 under the =cl-llama-cpp-extras/= prefix. All extensions share a single
